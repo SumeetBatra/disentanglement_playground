@@ -1,9 +1,7 @@
 import torch
 import torch.nn as nn
-import torch.nn.functional as F
 
 from typing import List
-from common.utils import off_diagonal
 
 
 class QuantizedLatent(nn.Module):
@@ -71,9 +69,3 @@ class QuantizedLatent(nn.Module):
             sample = values[torch.randint(len(values), (batch_size, 1))]
             ret.append(sample)
         return torch.hstack(ret)
-
-    def decorrelate(self, z):
-        proj_z = self.latent_projector(z)
-        cov = (proj_z.T @ proj_z) / (proj_z.size(0) - 1)
-        cov_loss = off_diagonal(cov).pow(2).sum().div(proj_z.size(1))
-        return cov_loss
