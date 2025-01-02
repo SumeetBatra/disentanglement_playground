@@ -1,0 +1,6 @@
+.idea/
+wandb/
+testing/
+datasets/
+results/
+__pycache__/
