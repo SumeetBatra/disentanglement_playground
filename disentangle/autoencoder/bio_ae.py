@@ -3,16 +3,19 @@ import torch.nn as nn
 import torch.nn.functional as F
 import numpy as np
 
-from disentangle.autoencoder.encoder import QuantizedEncoder
-from disentangle.autoencoder.decoder import QuantizedDecoder
+from disentangle.autoencoder.encoder import Encoder
+from disentangle.autoencoder.decoder import Decoder
+from typing import Dict
 
 
 class BioAE(nn.Module):
-    def __init__(self, obs_shape, num_latents: int = 2):
+    def __init__(self, obs_shape, num_latents, lambdas: Dict[str, float]):
         super(BioAE, self).__init__()
         self.num_latents = num_latents
-        self.encoder = QuantizedEncoder(obs_shape, num_latents * 2)
-        self.decoder = QuantizedDecoder(obs_shape, transition_shape=(256, 4, 4), num_latents=num_latents)
+        self.encoder = Encoder(obs_shape, num_latents * 2)
+        self.decoder = Decoder(obs_shape, transition_shape=(256, 4, 4), num_latents=num_latents)
+        self.lambdas = lambdas
+        self.continuous_latent = True
 
     def encode(self, x):
         mu, logvar = torch.chunk(self.encoder(x)['pre_z'], chunks=2, dim=-1)
@@ -61,26 +64,25 @@ class BioAE(nn.Module):
         logits, z, mu, logvar = self.forward(batch['x'])
 
         bce_loss = F.binary_cross_entropy_with_logits(logits, batch['x'], reduction='none').sum(dim=(1, 2, 3)).mean()
-
-        # kl_loss = 0.5 * (1.0 + logvar - mu.pow(2) - logvar.exp())
-        # # TODO: reduction
+        bce_loss *= self.lambdas['recon']
 
         entropy_loss = (0.5 * mu ** 2).sum(dim=-1)
-        entropy_loss = 0.005 * entropy_loss.mean()
+        entropy_loss = self.lambdas['ent'] * entropy_loss.mean()
 
-        # nonneg_loss = F.relu(-mu).sum(dim=-1)
-        # nonneg_loss = 0.5 * nonneg_loss.mean()
+        nonneg_loss = F.relu(-mu).sum(dim=-1)
+        nonneg_loss = self.lambdas['nonneg'] * nonneg_loss.mean()
 
         weight_reg = self.weight_reg(self.named_parameters(), exclude=('conv', 'encoder'))
-        weight_loss = 0.001 * weight_reg
+        weight_loss = self.lambdas['weight'] * weight_reg
 
-        total_loss = bce_loss + entropy_loss + weight_loss
+        total_loss = bce_loss + entropy_loss + weight_loss + nonneg_loss
 
         metrics = {
             'loss': total_loss.item(),
             'binary_cross_entropy_loss': bce_loss.item(),
-            # 'latent_nonneg_loss': nonneg_loss.item(),
-            'latent_entropy_loss': entropy_loss.item()
+            'latent_nonneg_loss': nonneg_loss.item(),
+            'latent_entropy_loss': entropy_loss.item(),
+            'entropy_loss': entropy_loss.item(),
         }
         outs = {
             'x_hat_logits': logits,

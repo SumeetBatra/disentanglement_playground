@@ -21,12 +21,12 @@ class Conv2DBlock(nn.Module):
         return self.block(x)
 
 
-class QuantizedEncoder(nn.Module):
+class Encoder(nn.Module):
     def __init__(self,
                  obs_shape: Tuple[int, ...],
                  num_latents: int,
                  amp: bool = False):
-        super(QuantizedEncoder, self).__init__()
+        super(Encoder, self).__init__()
         self.obs_shape = obs_shape
 
         self.conv = nn.Sequential(

@@ -16,22 +16,26 @@ def _setup_wandb(args: Dict[str, Any]) -> None:
     )
 
 
-def save_checkpoint(fp: str, model, optim):
+def save_checkpoint(fp: str, model, optim, latent_optim=None):
     torch.save({
         'model': model.state_dict(),
         'optim': optim.state_dict(),
+        'latent_optim': latent_optim.state_dict() if latent_optim is not None else None,
     }, fp)
 
 
-def load_checkpoint(fp: str, model, optim):
+def load_checkpoint(fp: str, model, optim, latent_optim=None):
     checkpoint = torch.load(fp)
     model.load_state_dict(checkpoint['model'])
     optim.load_state_dict(checkpoint['optim'])
+    if latent_optim is not None:
+        latent_optim.load_state_dict(checkpoint['latent_optim'])
+    return model, optim, latent_optim
 
 
 def get_shapes3d_dataset():
     dataset_cfg = {'seed': 0,
-                   'possible_dirs': ['/Users/sumeetbatra/disentanglement_playground/data'],
+                   'possible_dirs': ['/home/sumeet/latent_quantization/data'],
                    'batch_size': 256,
                    'num_val_data': 10_000}
     dataset_metadata, train_set, val_set = get_datasets(dataset_cfg)

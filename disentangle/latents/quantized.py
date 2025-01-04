@@ -28,14 +28,6 @@ class QuantizedLatent(nn.Module):
         self._values_per_latent = nn.Parameter(torch.stack(self._values_per_latent), requires_grad=True)
         self.optimize_values = optimize_values
 
-        self.latent_projector = nn.Sequential(
-            nn.Linear(self.num_latents, 128),
-            nn.GELU(),
-            nn.Linear(128, 128),
-            nn.GELU(),
-            nn.LayerNorm(128)
-        )
-
     @property
     def values_per_latent(self):
         if self.optimize_values:

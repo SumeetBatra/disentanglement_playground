@@ -1,0 +1,8 @@
+model:
+  num_latents: 10
+  lr: 0.001
+  lambdas:
+    recon: 1.0
+    ent: 1.0
+    weight: 0.03
+    nonneg: 100

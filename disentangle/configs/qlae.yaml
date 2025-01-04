@@ -1,0 +1,11 @@
+model:
+  num_latents: 10
+  values_per_latent: 10
+  model_lr: 0.001
+  latent_lr: 0.001
+  weight_decay: 0.1
+  lambdas:
+    binary_cross_entropy: 1.0
+    quantization: 0.01
+    commitment: 0.01
+    l2: 0.1

@@ -1,0 +1,6 @@
+model:
+  num_latents: 10
+  model_lr: 0.001
+  lambdas:
+    kl_div: 150.0
+    recon: 1.0

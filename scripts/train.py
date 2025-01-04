@@ -14,9 +14,10 @@ from pathlib import Path
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
+
 def parse_command_line():
     parser = argparse.ArgumentParser()
-    parser.add_argument('--model', type=str, choices=['beta', 'bio', 'qlae'])
+    parser.add_argument('--model', type=str, choices=['beta_vae', 'bio_ae', 'qlae'])
     parser.add_argument("--train_n_steps", type=int, default=2e5)
     parser.add_argument("--eval_n_steps", type=int, default=5000)
     parser.add_argument("--checkpoint_n_steps", type=int, default=5000)
@@ -30,11 +31,12 @@ def parse_command_line():
 
     return vars(parser.parse_args())
 
+
 def evaluate(val_set, model, step: int, use_wandb: bool = False):
     losses, final_aux = defaultdict(list), {}
     for batch in iter(val_set):
         batch['x'] = torch.from_numpy(batch['x']).to(device)
-        _, aux = model.batched_losss(batch)
+        _, aux = model.batched_loss(batch)
         aux['x_true'] = batch['x']
         aux['x_hat_logits'] = aux['outs']['x_hat_logits']
 
@@ -54,8 +56,12 @@ def evaluate(val_set, model, step: int, use_wandb: bool = False):
         num_samples = num_perturbations = 16
         for latent_i in range(model.num_latents):
             print(f'Interpolating {num_perturbations} samples for latent {latent_i}')
-            latent_mins = aux['outs']['z_hat'].min(dim=0).values
-            latent_maxs = aux['outs']['z_hat'].max(dim=0).values
+            if model.continuous_latent:
+                latent_mins = torch.ones(10).cuda() * -1
+                latent_maxs = torch.ones(10).cuda()
+            else:
+                latent_mins = aux['outs']['z_hat'].min(dim=0).values
+                latent_maxs = aux['outs']['z_hat'].max(dim=0).values
             latent_perturbed = torch.tile(aux['outs']['z_hat'][:num_samples], (num_perturbations, 1, 1))
             latent_perturbed[:, :, latent_i] = torch.linspace(latent_mins[latent_i], latent_maxs[latent_i],
                                                               num_perturbations)[:, None]
@@ -72,6 +78,7 @@ def evaluate(val_set, model, step: int, use_wandb: bool = False):
                 image = einops.rearrange(x, 'v n c h w -> (n h) (v w) c')
             wandb.log({f'latent {latent_i} perturbations': wandb.Image(image.detach().cpu().numpy()), 'step': step})
 
+
 def train():
     args = parse_command_line()
 
@@ -84,7 +91,8 @@ def train():
 
     # construct the model
     model_key = args['model']
-    model, optimizer = model_factory(model_key).to(device)
+    model, model_optim, latent_optim = model_factory(model_key)
+    model = model.to(device)
     exp_dir = Path(f'./results/{model_key}')
     exp_dir.mkdir(parents=True, exist_ok=True)
 
@@ -96,19 +104,24 @@ def train():
 
         if (step + 1) % args['checkpoint_n_steps'] == 0:
             cp_path = exp_dir / f'checkpoint_{step + 1}.pt'
-            save_checkpoint(str(cp_path), model, optimizer)
+            save_checkpoint(str(cp_path), model, model_optim, latent_optim)
 
         batch['x'] = torch.from_numpy(batch['x']).to(device)
         loss, aux = model.batched_loss(batch)
 
-        optimizer.zero_grad()
+        model_optim.zero_grad()
+        if latent_optim:
+            latent_optim.zero_grad()
         loss.backward()
-        optimizer.step()
+        model_optim.step()
+        if latent_optim:
+            latent_optim.step()
 
         if step == 0 or (step + 1) % eval_n_steps == 0 or \
             ((step + 1 < eval_n_steps) and (step + 1) % (eval_n_steps // 10) == 0):
             with torch.no_grad():
                 evaluate(val_set, model, step, use_wandb=args['use_wandb'])
+
 
 if __name__ == '__main__':
     train()

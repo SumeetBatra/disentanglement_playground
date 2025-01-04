@@ -20,7 +20,7 @@ class Conv2DTransposeBlock(nn.Module):
         return self.conv_block(x)
 
 
-class QuantizedDecoder(nn.Module):
+class Decoder(nn.Module):
     def __init__(self,
                  obs_shape: Tuple[int, ...],
                  transition_shape: Tuple[int, ...],
