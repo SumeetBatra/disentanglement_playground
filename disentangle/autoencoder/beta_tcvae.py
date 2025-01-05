@@ -2,6 +2,7 @@ import torch
 import torch.nn.functional as F
 
 from disentangle.autoencoder.beta_vae import BetaVAE
+from typing import Tuple, Dict
 
 
 def gaussian_log_density(samples: torch.Tensor, mean: torch.Tensor, log_var: torch.Tensor):
@@ -33,7 +34,7 @@ def total_correlation(z: torch.Tensor, mu: torch.Tensor, logvar: torch.Tensor):
 
 
 class BetaTCVAE(BetaVAE):
-    def __init__(self, obs_shape, num_latents, lambdas):
+    def __init__(self, obs_shape: Tuple[int, ...], num_latents: int, lambdas: Dict[str, float]):
         super(BetaTCVAE, self).__init__(obs_shape, num_latents, lambdas)
 
     def batched_loss(self, batch):

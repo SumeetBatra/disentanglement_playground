@@ -10,7 +10,7 @@ from disentangle.autoencoder.decoder import Conv2DTransposeBlock
 from typing import Tuple, List, Dict, Any
 
 
-def build_grid(resolution):
+def build_grid(resolution: Tuple[int, int]):
     ranges = [np.linspace(0., 1., num=res) for res in resolution]
     grid = np.meshgrid(*ranges, sparse=False, indexing="ij")
     grid = np.stack(grid, axis=-1)
@@ -30,8 +30,9 @@ def spatial_broadcast(slots: torch.Tensor, resolution: Tuple[int, int]):
     # grid has shape (batch_size * n_slots, width_height, slot_size)
     return grid
 
+
 class SlotEncoder(nn.Module):
-    def __init__(self, resolution, hid_dim, slot_dim):
+    def __init__(self, resolution: Tuple[int, int], hid_dim: int, slot_dim: int):
         super().__init__()
         self.conv = nn.Sequential(
             nn.Conv2d(3, hid_dim, 5, padding=2), nn.ReLU(inplace=True),
@@ -48,7 +49,7 @@ class SlotEncoder(nn.Module):
             nn.Linear(in_features=64, out_features=slot_dim)
         )
 
-    def forward(self, x):
+    def forward(self, x: torch.Tensor):
         x = self.conv(x)
         x = x.permute(0, 2, 3, 1)
         x = self.encoder_pos(x)
@@ -57,7 +58,7 @@ class SlotEncoder(nn.Module):
 
 
 class SlotDecoder(nn.Module):
-    def __init__(self, hid_dim, resolution: Tuple[int, int] = (8, 8)):
+    def __init__(self, hid_dim: int, resolution: Tuple[int, int] = (8, 8)):
         super().__init__()
         self.conv = nn.Sequential(
             nn.ConvTranspose2d(hid_dim, hid_dim, 5, stride=(2, 2), padding=2, output_padding=1), nn.ReLU(inplace=True),
@@ -69,7 +70,7 @@ class SlotDecoder(nn.Module):
         self.decoder_pos = SoftPositionEmbed(input_dim=4, hidden_size=hid_dim, resolution=self.decoder_initial_size)
         self.resolution = resolution
 
-    def forward(self, z_hat):
+    def forward(self, z_hat: torch.Tensor):
         b, n, d = z_hat.shape
         z_hat = z_hat.reshape(b * n, d)[:, None, None, :].repeat(1, *self.resolution, 1)  # (b*n, h, w, d)
         z_hat = self.decoder_pos(z_hat)
@@ -83,7 +84,7 @@ class SlotDecoder(nn.Module):
 
 
 class SoftPositionEmbed(nn.Module):
-    def __init__(self, input_dim, hidden_size, resolution):
+    def __init__(self, input_dim: int, hidden_size: int, resolution: Tuple[int, int]):
         super(SoftPositionEmbed, self).__init__()
         self.linear = nn.Linear(input_dim, hidden_size)
         self.grid = torch.from_numpy(build_grid(resolution))
@@ -109,7 +110,7 @@ class SlotAutoEncoder(nn.Module):
             self.latent = slot_model
         self.lambdas = lambdas
 
-    def forward(self, x):
+    def forward(self, x: torch.Tensor):
         pre_z = self.encoder(x)
         slots, keep_slots = self.latent(pre_z)
         recon, masks = self.decoder(slots)

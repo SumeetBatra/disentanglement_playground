@@ -5,11 +5,11 @@ import numpy as np
 
 from disentangle.autoencoder.encoder import Encoder
 from disentangle.autoencoder.decoder import Decoder
-from typing import Dict
+from typing import Dict, Tuple
 
 
 class BioAE(nn.Module):
-    def __init__(self, obs_shape, num_latents, lambdas: Dict[str, float]):
+    def __init__(self, obs_shape: Tuple[int, ...], num_latents: int, lambdas: Dict[str, float]):
         super(BioAE, self).__init__()
         self.num_latents = num_latents
         self.encoder = Encoder(obs_shape, num_latents * 2)
