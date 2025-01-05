@@ -1,0 +1,8 @@
+model:
+  num_latents: 8
+  slot_dim: 64
+  model_lr: 0.0003
+  adaptive: True
+  lambdas:
+    slot_reg: 0.1
+    recon: 1.0

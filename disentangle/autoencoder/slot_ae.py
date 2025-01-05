@@ -4,10 +4,10 @@ import torch.nn.functional as F
 import numpy as np
 
 from einops import rearrange
-from disentangle.latents.slot import SlotAttention, AdaptiveSlotWrapper
+from disentangle.latents.slot_attention import SlotAttention, AdaptiveSlotWrapper
 from disentangle.autoencoder.encoder import Conv2DBlock
 from disentangle.autoencoder.decoder import Conv2DTransposeBlock
-from typing import Tuple, List
+from typing import Tuple, List, Dict, Any
 
 
 def build_grid(resolution):
@@ -29,79 +29,6 @@ def spatial_broadcast(slots: torch.Tensor, resolution: Tuple[int, int]):
     grid = torch.tile(slots, dims=(1, resolution[0], resolution[1], 1))
     # grid has shape (batch_size * n_slots, width_height, slot_size)
     return grid
-
-
-class Encoder(nn.Module):
-    def __init__(self,
-                 obs_shape: Tuple[int, ...],
-                 slot_dim: int,
-                 amp: bool = False):
-        super(Encoder, self).__init__()
-        self.obs_shape = obs_shape
-
-        self.conv = nn.Sequential(
-            Conv2DBlock(in_channels=3, out_channels=32, kernel_size=4, stride=2, padding=1),
-            Conv2DBlock(in_channels=32, out_channels=64, kernel_size=4, stride=2, padding=1),
-            Conv2DBlock(in_channels=64, out_channels=128, kernel_size=4, stride=2, padding=1),
-        )
-
-        self.dense = nn.Sequential(
-            nn.LayerNorm(128),
-            nn.Linear(in_features=128, out_features=128),
-            nn.ReLU(),
-            nn.Linear(in_features=128, out_features=slot_dim)
-        )
-
-        self.pos_embeds = SoftPositionEmbed(input_dim=4, hidden_size=128, resolution=(8, 8))
-
-        self.amp = amp
-
-    def encode(self, x: torch.Tensor):
-        x = self.conv(x)
-        x = x.permute(0, 2, 3, 1)
-        x = self.pos_embeds(x)
-        x = x.flatten(start_dim=1, end_dim=2)
-        x = self.dense(x)
-        return x
-
-    def forward(self, x: torch.Tensor):
-        with torch.autocast(device_type="cuda", enabled=self.amp):
-            outs = self.encode(x)
-        return outs
-
-
-class Decoder(nn.Module):
-    def __init__(self,
-                 obs_shape: Tuple[int, ...],
-                 hidden_size: int,
-                 resolution: Tuple[int, int] = (8, 8)):
-        super().__init__()
-        self.obs_shape = obs_shape
-        self.resolution = resolution
-        self.network = nn.Sequential(
-            Conv2DTransposeBlock(64, 32, kernel_size=4, stride=2, padding=1),
-            Conv2DTransposeBlock(32, 16, kernel_size=4, stride=2, padding=1),
-            Conv2DTransposeBlock(16, 8, kernel_size=4, stride=2, padding=1),
-            nn.ConvTranspose2d(8, 4, kernel_size=3, stride=1, padding=1),
-        )
-        self.decoder_pos = SoftPositionEmbed(input_dim=4, hidden_size=hidden_size, resolution=self.resolution)
-
-    def forward(self, z_hat: torch.Tensor):
-        '''
-        :param z_hat: (batch_size x num_slots x slot_size) tensor
-        '''
-        # broadcast to 2D grid so we can add pos embeds
-        b, n, d = z_hat.shape
-        z_hat = z_hat.reshape(b * n, d)[:, None, None, :].repeat(1, *self.resolution, 1)  # (b*n, h, w, d)
-        z_hat = self.decoder_pos(z_hat)
-        z_hat = rearrange(z_hat, '(b n) h w d -> (b n) d h w', b=b, n=n, d=d)
-        outs = self.network(z_hat)  # (batch * n_slots, channels, h, w)
-        recons, masks = rearrange(outs, '(b n) d h w -> b n d h w', b=b, n=n).split([3, 1], dim=2)
-        # normalize alpha masks over slots
-        masks = F.softmax(masks, dim=1)
-        recon_combined = torch.sum(recons * masks, dim=1)  # recombine into image using masks
-        return recon_combined
-
 
 class SlotEncoder(nn.Module):
     def __init__(self, resolution, hid_dim, slot_dim):
@@ -136,7 +63,6 @@ class SlotDecoder(nn.Module):
             nn.ConvTranspose2d(hid_dim, hid_dim, 5, stride=(2, 2), padding=2, output_padding=1), nn.ReLU(inplace=True),
             nn.ConvTranspose2d(hid_dim, hid_dim, 5, stride=(2, 2), padding=2, output_padding=1), nn.ReLU(inplace=True),
             nn.ConvTranspose2d(hid_dim, hid_dim, 5, stride=(2, 2), padding=2, output_padding=1), nn.ReLU(inplace=True),
-            # nn.ConvTranspose2d(hid_dim, hid_dim, 5, stride=(2, 2), padding=2, output_padding=1), nn.ReLU(inplace=True),
             nn.ConvTranspose2d(hid_dim, 4, 3, stride=(1, 1), padding=1)
         )
         self.decoder_initial_size = (8, 8)
@@ -168,20 +94,20 @@ class SoftPositionEmbed(nn.Module):
 
 
 class SlotAutoEncoder(nn.Module):
-    def __init__(self, obs_shape: Tuple[int, ...], num_latents, slot_dim, adaptive: bool = True, lamda: float = 0.1):
+    def __init__(self, obs_shape: Tuple[int, ...], num_slots: int, slot_dim: int, adaptive: bool, lambdas: Dict[str, Any]):
         super(SlotAutoEncoder, self).__init__()
         self.obs_shape = obs_shape
-        self.num_latents = num_latents
+        self.num_slots = num_slots
         self.latent_dim = slot_dim
         self.encoder = SlotEncoder(resolution=(64, 64), hid_dim=64, slot_dim=slot_dim)
         self.decoder = SlotDecoder(hid_dim=64)
         self.adaptive = adaptive
-        slot_model = SlotAttention(num_slots=num_latents, dim=slot_dim)
+        slot_model = SlotAttention(num_slots=num_slots, dim=slot_dim)
         if self.adaptive:
             self.latent = AdaptiveSlotWrapper(slot_model)
         else:
             self.latent = slot_model
-        self.lamda = lamda
+        self.lambdas = lambdas
 
     def forward(self, x):
         pre_z = self.encoder(x)
@@ -189,7 +115,7 @@ class SlotAutoEncoder(nn.Module):
         recon, masks = self.decoder(slots)
         outs = {
             'pre_z': pre_z,
-            'z_hat': slots,
+            'slots': slots,
             'keep_slots': keep_slots,
             'x_hat_logits': recon,
             'masks': masks
@@ -198,12 +124,12 @@ class SlotAutoEncoder(nn.Module):
 
     def batched_loss(self, batch):
         outs = self(batch['x'])
-        bce_loss = F.binary_cross_entropy_with_logits(outs['x_hat_logits'], target=batch['x'])
+        bce_loss = F.binary_cross_entropy_with_logits(outs['x_hat_logits'], target=batch['x'], reduction='none').sum((1, 2, 3)).mean()
         slot_reg = 0.0
         if self.adaptive:
             slot_reg = outs['keep_slots'].sum(1).mean()
 
-        total_loss = bce_loss + self.lamda * slot_reg
+        total_loss = self.lambdas['recon'] * bce_loss + self.lambdas['slot_reg'] * slot_reg
 
         total_loss = total_loss.mean()
 

@@ -17,10 +17,12 @@ device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 def parse_command_line():
     parser = argparse.ArgumentParser()
-    parser.add_argument('--model', type=str, choices=['beta_vae', 'bio_ae', 'qlae'])
+    parser.add_argument('--model', type=str, choices=['beta_vae', 'bio_ae', 'qlae', 'slot_ae', 'beta_tcvae'])
     parser.add_argument("--train_n_steps", type=int, default=2e5)
     parser.add_argument("--eval_n_steps", type=int, default=5000)
     parser.add_argument("--checkpoint_n_steps", type=int, default=5000)
+    parser.add_argument("--seed", type=int, default=0)
+    parser.add_argument("--batch_size", type=int, default=256)
     # wandb params
     parser.add_argument('--use_wandb', action='store_true')
     parser.add_argument('--wandb_entity', type=str, default='qdrl')
@@ -32,7 +34,7 @@ def parse_command_line():
     return vars(parser.parse_args())
 
 
-def evaluate(val_set, model, step: int, use_wandb: bool = False):
+def evaluate(val_set, model, model_key, step: int, use_wandb: bool = False):
     losses, final_aux = defaultdict(list), {}
     for batch in iter(val_set):
         batch['x'] = torch.from_numpy(batch['x']).to(device)
@@ -56,12 +58,12 @@ def evaluate(val_set, model, step: int, use_wandb: bool = False):
         num_samples = num_perturbations = 16
         for latent_i in range(model.num_latents):
             print(f'Interpolating {num_perturbations} samples for latent {latent_i}')
-            if model.continuous_latent:
-                latent_mins = torch.ones(10).cuda() * -1
-                latent_maxs = torch.ones(10).cuda()
-            else:
-                latent_mins = aux['outs']['z_hat'].min(dim=0).values
-                latent_maxs = aux['outs']['z_hat'].max(dim=0).values
+            # if model_key in ['beta_vae', 'beta_tcvae']:
+            #     latent_mins = torch.ones(10).cuda() * -1
+            #     latent_maxs = torch.ones(10).cuda()
+            # else:
+            latent_mins = aux['outs']['z_hat'].min(dim=0).values
+            latent_maxs = aux['outs']['z_hat'].max(dim=0).values
             latent_perturbed = torch.tile(aux['outs']['z_hat'][:num_samples], (num_perturbations, 1, 1))
             latent_perturbed[:, :, latent_i] = torch.linspace(latent_mins[latent_i], latent_maxs[latent_i],
                                                               num_perturbations)[:, None]
@@ -87,7 +89,11 @@ def train():
         _setup_wandb(args)
 
     # shapes3D dataset
-    train_set, val_set = get_shapes3d_dataset()
+    dataset_cfg = {'seed': args['seed'],
+                   'possible_dirs': ['/home/sumeet/latent_quantization/data'],
+                   'batch_size': args['batch_size'],
+                   'num_val_data': 10_000}
+    train_set, val_set = get_shapes3d_dataset(dataset_cfg)
 
     # construct the model
     model_key = args['model']
@@ -120,7 +126,7 @@ def train():
         if step == 0 or (step + 1) % eval_n_steps == 0 or \
             ((step + 1 < eval_n_steps) and (step + 1) % (eval_n_steps // 10) == 0):
             with torch.no_grad():
-                evaluate(val_set, model, step, use_wandb=args['use_wandb'])
+                evaluate(val_set, model, model_key, step, use_wandb=args['use_wandb'])
 
 
 if __name__ == '__main__':

@@ -75,7 +75,7 @@ class SlotAttention(nn.Module):
         self.norm_slots = nn.LayerNorm(dim)
         self.norm_pre_ff = nn.LayerNorm(dim)
 
-    def forward(self, inputs: torch.Tensor, num_slots=None) -> torch.Tensor:
+    def forward(self, inputs: torch.Tensor, num_slots=None):
         '''
         :param inputs: (Batch size x Num tokens x input_dim) tensor
         :param num_slots: optional number of slots to use if different from initial num_slots
@@ -113,7 +113,7 @@ class SlotAttention(nn.Module):
             slots = slots.reshape(b, -1, d)
             slots = slots + self.mlp(self.norm_pre_ff(slots))
 
-        return slots
+        return slots, None
 
 
 class AdaptiveSlotWrapper(nn.Module):
@@ -125,7 +125,7 @@ class AdaptiveSlotWrapper(nn.Module):
         self.pred_keep_slot = nn.Linear(slot_dim, 2, bias=False)
 
     def forward(self, x: torch.Tensor):
-        slots = self.slot_attn(x)
+        slots, _ = self.slot_attn(x)
         keep_slot_logits = self.pred_keep_slot(slots)
         keep_slots, _ = gumbel_softmax(keep_slot_logits, temperature=self.temperature)
 

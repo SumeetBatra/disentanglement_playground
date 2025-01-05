@@ -5,4 +5,4 @@ model:
     recon: 1.0
     ent: 1.0
     weight: 0.03
-    nonneg: 100
+    nonneg: 50

@@ -33,10 +33,6 @@ def load_checkpoint(fp: str, model, optim, latent_optim=None):
     return model, optim, latent_optim
 
 
-def get_shapes3d_dataset():
-    dataset_cfg = {'seed': 0,
-                   'possible_dirs': ['/home/sumeet/latent_quantization/data'],
-                   'batch_size': 256,
-                   'num_val_data': 10_000}
+def get_shapes3d_dataset(dataset_cfg: Dict[str, Any]):
     dataset_metadata, train_set, val_set = get_datasets(dataset_cfg)
     return train_set, val_set
