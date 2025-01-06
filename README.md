@@ -44,7 +44,7 @@ Training takes about 1.5 hours on an RTX 3090.
 ## Common Gotchas
 If you get the error `undefined symbol: __nvJitLinkComplete_12_4, version libnvJitLink.so.12` try this fix: 
 
-`export LD_LIBRARY_PATH=$HOME/path/to/my/venv/lib64/python3.10/site-packages/nvidia/nvjitlink/lib:$LD_LIBRARY_PATH`
+`export LD_LIBRARY_PATH=$HOME/path/to/my/venv/lib/python3.10/site-packages/nvidia/nvjitlink/lib:$LD_LIBRARY_PATH`
 
 
 ## Acknowledgements 
