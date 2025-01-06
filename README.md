@@ -44,7 +44,9 @@ Training takes about 1.5 hours on an RTX 3090.
 
 
 ## Acknowledgements 
-Much of the code is adapted from 
+Much of the infrastructure code and the QLAE model itself is adapted from 
 https://github.com/kylehkhsu/latent_quantization
 and rewritten in PyTorch. 
+Models that were adapted from other repos will have links to the original implementations in their 
+respective files.
 
