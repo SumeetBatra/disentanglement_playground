@@ -95,7 +95,6 @@ def train():
 
     # shapes3D dataset
     dataset_cfg = {'seed': args['seed'],
-                   'possible_dirs': ['/home/sumeet/latent_quantization/data'],
                    'batch_size': args['batch_size'],
                    'num_val_data': 10_000}
     train_set, val_set = get_shapes3d_dataset(dataset_cfg)

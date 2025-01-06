@@ -1,5 +1,6 @@
 import pathlib
 import resource
+import os
 low, high = resource.getrlimit(resource.RLIMIT_NOFILE)
 resource.setrlimit(resource.RLIMIT_NOFILE, (high, high))
 import tensorflow as tf
@@ -24,7 +25,7 @@ def prepare_data(data):
 
 
 def get_datasets(config):
-    possible_dirs = config['possible_dirs']
+    possible_dirs = [os.path.expandvars('$HOME/disentanglement_playground/datasets')]
     while len(possible_dirs) > 0:
         possible_dir = pathlib.Path(possible_dirs.pop(0))
         try:

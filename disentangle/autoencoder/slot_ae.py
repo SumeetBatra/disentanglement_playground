@@ -5,8 +5,6 @@ import numpy as np
 
 from einops import rearrange
 from disentangle.latents.slot_attention import SlotAttention, AdaptiveSlotWrapper
-from disentangle.autoencoder.encoder import Conv2DBlock
-from disentangle.autoencoder.decoder import Conv2DTransposeBlock
 from typing import Tuple, List, Dict, Any
 
 

@@ -17,6 +17,19 @@ Currently, the following models are implemented:
 
 ## Installation
 
+Create a conda env (or whatever virtual env you prefer):
+
+`conda create --name disentangle python=3.10`
+
+Install the requirements:
+
+`pip install -r requirements.txt`
+
+Follow the instructions [here](https://github.com/google-deepmind/3d-shapes) to download the Shapes3D dataset. 
+Put it in a folder named "datasets" in the root of this repo i.e.`disentanglement_playground/datasets/`. 
+I've assumed that the repo is installed in your $HOME directory. If that's not the case, you'll have to point it to 
+wherever you have downloaded it (change ```possible_dirs=[...]``` in `common/shapes3d.py`)
+
 
 ## Running Experiments 
 At the bare minimum, you just need to specify which model you want to run! 
@@ -26,6 +39,7 @@ For example, to run QLAE:
 
 With Weights and Biases enabled, intermediate result visualizations will be automatically logged with your experiment.
 If you don't want to use Weights and Biases, the images will be saved locally to `results/{MODEL}/images`.
+Training takes about 1.5 hours on an RTX 3090. 
 
 
 

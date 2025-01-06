@@ -1,11 +1,10 @@
 import argparse
 
 from tqdm import tqdm
-from disentangle.datasets.shapes3d import get_datasets
 from disentangle.utils.metrics import *
 from disentangle import model_factory
 from pathlib import Path
-from common.utils import _setup_wandb, save_checkpoint
+from common.utils import _setup_wandb, save_checkpoint, get_shapes3d_dataset
 from collections import defaultdict
 
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
@@ -72,10 +71,9 @@ def train(args):
 
     # load the shapes3D dataset
     dataset_cfg = {'seed': args['seed'],
-                   'possible_dirs': ['/home/sumeet/latent_quantization/data'],
                    'batch_size': args['batch_size'],
                    'num_val_data': 2500}
-    dataset_metadata, train_set, val_set = get_datasets(dataset_cfg)
+    train_set, val_set = get_shapes3d_dataset(dataset_cfg)
 
     # construct the model
     model, model_optim, latent_optim = model_factory('slot_ae')

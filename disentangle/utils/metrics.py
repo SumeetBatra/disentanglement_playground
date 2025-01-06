@@ -4,10 +4,6 @@ import einops
 import torch.nn.functional as F
 import numpy as np
 import sklearn
-import seaborn as sns
-import matplotlib.pyplot as plt
-
-from sklearn import linear_model, preprocessing
 
 
 def peak_signal_to_noise_ratio(x_hat_logits, x_true):
