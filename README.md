@@ -41,6 +41,10 @@ With Weights and Biases enabled, intermediate result visualizations will be auto
 If you don't want to use Weights and Biases, the images will be saved locally to `results/{MODEL}/images`.
 Training takes about 1.5 hours on an RTX 3090. 
 
+## Common Gotchas
+If you get the error `undefined symbol: __nvJitLinkComplete_12_4, version libnvJitLink.so.12` try this fix: 
+
+`export LD_LIBRARY_PATH=$HOME/path/to/my/venv/lib64/python3.10/site-packages/nvidia/nvjitlink/lib:$LD_LIBRARY_PATH`
 
 
 ## Acknowledgements 
