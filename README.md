@@ -37,6 +37,10 @@ For example, to run QLAE:
 
 `python -m scripts.train --model=qlae --use_wandb`
 
+To train slot attention, there's a separate script but roughly the same structure: 
+
+`python -m scripts.train_slot_ae --use_wandb`
+
 With Weights and Biases enabled, intermediate result visualizations will be automatically logged with your experiment.
 If you don't want to use Weights and Biases, the images will be saved locally to `results/{MODEL}/images`.
 Training takes about 1.5 hours on an RTX 3090. 
